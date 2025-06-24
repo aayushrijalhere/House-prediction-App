@@ -77,3 +77,11 @@ with st.form("prediction_form"):
             st.metric("Price per Room", f"NPR {price_per_room:,.0f}")
         with col2:
             st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
+
+# Add some explanation
+st.markdown("""
+**Note:** 
+- 1 Aana = 342.25 sq.ft.
+- Prices include both land and construction costs.
+- Model is trained on sample data and provides estimates only.
+""")

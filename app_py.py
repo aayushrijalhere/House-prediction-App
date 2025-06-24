@@ -8,7 +8,7 @@ np.random.seed(42)
 
 # Sample housing data for Kathmandu
 locations = ['Tarkeshwor', 'Kageshwori Manohara', 'Kirtipur', 'Chandragiri']
-land_price_per_aana = [1500000, 1800000, 2200000, 3000000]  # NPR per aana
+land_price_per_aana = [1500000, 1800000, 2200000, 3000000]  # NPR per aana (constant for each location)
 
 # Create base dataset
 data = pd.DataFrame({
@@ -21,7 +21,7 @@ data = pd.DataFrame({
 # Convert area to aana (1 aana = 342.25 sq.ft.)
 data['Area_aana'] = data['Area_sqft'] / 342.25
 
-# Map land price to location
+# Map land price to location (constant per aana for each location)
 price_map = dict(zip(locations, land_price_per_aana))
 data['Land_Price_per_aana'] = data['Location'].map(price_map)
 
@@ -31,8 +31,10 @@ data['Construction_Cost'] = data['Area_sqft'] * construction_cost_per_sqft
 data['Land_Cost'] = data['Area_aana'] * data['Land_Price_per_aana']
 data['Price_NPR'] = data['Land_Cost'] + data['Construction_Cost']
 
-# Add room premium 
-data['Price_NPR'] += data['Rooms'] * 100000  # Adding NPR 100,000 per room
+# Room pricing - price per room decreases as number of rooms increases
+# Using a logarithmic function to model diminishing returns
+data['Room_Premium'] = np.log(data['Rooms'] + 1) * 500000  # Logarithmic scaling
+data['Price_NPR'] += data['Room_Premium']
 
 # Train the model
 X = data[['Rooms', 'Area_aana', 'Land_Price_per_aana']]
@@ -43,7 +45,7 @@ model.fit(X, y)
 # Prediction function
 def predict_prices(rooms, area_sqft, location):
     # Convert area to aana
-    area_aana = area_sqft / 342.25  # Fixed the conversion (was multiplying instead of dividing)
+    area_aana = area_sqft / 342.25
     land_price = price_map.get(location, 1800000)  # Default value
     
     # Predict total price
@@ -52,7 +54,7 @@ def predict_prices(rooms, area_sqft, location):
     
     # Calculate price per room and per aana
     price_per_room = total_price / rooms
-    price_per_aana = total_price / area_aana
+    price_per_aana = land_price  # Constant per aana for location
     
     return price_per_room, price_per_aana
 
@@ -82,6 +84,9 @@ with st.form("prediction_form"):
 st.markdown("""
 **Note:** 
 - 1 Aana = 342.25 sq.ft.
+- Price per aana is constant for each location.
+- Price per room decreases as number of rooms increases.
+- Price per room increases as area increases.
 - Prices include both land and construction costs.
 - Model is trained on sample data and provides estimates only.
 """)

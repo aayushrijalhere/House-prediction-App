@@ -10,51 +10,71 @@ np.random.seed(42)
 locations = ['Tarkeshwor', 'Kageshwori Manohara', 'Kirtipur', 'Chandragiri']
 land_price_per_aana = [1500000, 1800000, 2200000, 3000000]  # NPR per aana (constant for each location)
 
-# Create base dataset
-data = pd.DataFrame({
-    'Location': locations,
-    'Rooms': [3, 4, 5, 6],
-    'Area_sqft': [1000, 1200, 1600, 2000],
-    'House_Type': ['House'] * 4
-})
+# Create more comprehensive dataset with multiple samples per location
+num_samples_per_location = 20
+data = pd.DataFrame()
 
-# Convert area to aana (1 aana = 342.25 sq.ft.)
-data['Area_aana'] = data['Area_sqft'] / 342.25
+for loc, price_per_aana in zip(locations, land_price_per_aana):
+    # Generate random samples for each location
+    loc_data = pd.DataFrame({
+        'Location': [loc] * num_samples_per_location,
+        'Rooms': np.random.randint(1, 6, num_samples_per_location),
+        'Area_sqft': np.random.randint(800, 2500, num_samples_per_location),
+        'House_Type': ['House'] * num_samples_per_location
+    })
+    
+    # Convert area to aana (1 aana = 342.25 sq.ft.)
+    loc_data['Area_aana'] = loc_data['Area_sqft'] / 342.25
+    
+    # Set land price per aana (constant for location)
+    loc_data['Land_Price_per_aana'] = price_per_aana
+    
+    # Base price calculation
+    construction_cost_per_sqft = 15000  # NPR
+    loc_data['Construction_Cost'] = loc_data['Area_sqft'] * construction_cost_per_sqft
+    loc_data['Land_Cost'] = loc_data['Area_aana'] * loc_data['Land_Price_per_aana']
+    
+    # Price increases by (price_per_aana / 342.25) per 100 sq.ft
+    loc_data['Area_Price_Increment'] = (loc_data['Area_sqft'] / 100) * (price_per_aana / 342.25)
+    
+    # Room pricing - price per room decreases as number of rooms increases
+    loc_data['Room_Premium'] = np.log(loc_data['Rooms'] + 1) * 500000  # Logarithmic scaling
+    
+    # Total price
+    loc_data['Price_NPR'] = (loc_data['Land_Cost'] + 
+                            loc_data['Construction_Cost'] + 
+                            loc_data['Area_Price_Increment'] + 
+                            loc_data['Room_Premium'])
+    
+    data = pd.concat([data, loc_data])
 
-# Map land price to location (constant per aana for each location)
-price_map = dict(zip(locations, land_price_per_aana))
-data['Land_Price_per_aana'] = data['Location'].map(price_map)
-
-# Feature engineering - realistic pricing
-construction_cost_per_sqft = 15000  # NPR
-data['Construction_Cost'] = data['Area_sqft'] * construction_cost_per_sqft
-data['Land_Cost'] = data['Area_aana'] * data['Land_Price_per_aana']
-data['Price_NPR'] = data['Land_Cost'] + data['Construction_Cost']
-
-# Room pricing - price per room decreases as number of rooms increases
-# Using a logarithmic function to model diminishing returns
-data['Room_Premium'] = np.log(data['Rooms'] + 1) * 500000  # Logarithmic scaling
-data['Price_NPR'] += data['Room_Premium']
-
-# Train the model
-X = data[['Rooms', 'Area_aana', 'Land_Price_per_aana']]
-y = data['Price_NPR']
-model = LinearRegression()
-model.fit(X, y)
+# Create separate models for each location
+location_models = {}
+for loc in locations:
+    loc_data = data[data['Location'] == loc]
+    X = loc_data[['Rooms', 'Area_sqft']]
+    y = loc_data['Price_NPR']
+    model = LinearRegression()
+    model.fit(X, y)
+    location_models[loc] = model
 
 # Prediction function
 def predict_prices(rooms, area_sqft, location):
-    # Convert area to aana
-    area_aana = area_sqft / 342.25
-    land_price = price_map.get(location, 1800000)  # Default value
+    # Get the model for this location
+    model = location_models.get(location)
+    if model is None:
+        raise ValueError(f"No model found for location: {location}")
     
     # Predict total price
-    features = [[rooms, area_aana, land_price]]
+    features = [[rooms, area_sqft]]
     total_price = model.predict(features)[0]
+    
+    # Get land price per aana for this location
+    price_per_aana = dict(zip(locations, land_price_per_aana))[location]
     
     # Calculate price per room and per aana
     price_per_room = total_price / rooms
-    price_per_aana = land_price  # Constant per aana for location
+    price_per_aana = price_per_aana  # Constant per aana for location
     
     return price_per_room, price_per_aana
 
@@ -71,22 +91,34 @@ with st.form("prediction_form"):
     submitted = st.form_submit_button("Predict Prices")
     
     if submitted:
-        price_per_room, price_per_aana = predict_prices(rooms, area_sqft, location)
-        
-        st.subheader("Prediction Results")
-        col1, col2 = st.columns(2)
-        with col1:
-            st.metric("Price per Room", f"NPR {price_per_room:,.0f}")
-        with col2:
-            st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
+        try:
+            price_per_room, price_per_aana = predict_prices(rooms, area_sqft, location)
+            
+            st.subheader("Prediction Results")
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Price per Room", f"NPR {price_per_room:,.0f}")
+            with col2:
+                st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
+            
+            # Show the area price increment calculation
+            area_increment = (area_sqft / 100) * (price_per_aana / 342.25)
+            st.write(f"Area price increment (for {area_sqft} sq.ft.): NPR {area_increment:,.0f}")
+            
+        except Exception as e:
+            st.error(f"Error in prediction: {str(e)}")
 
 # Add some explanation
 st.markdown("""
 **Note:** 
 - 1 Aana = 342.25 sq.ft.
 - Price per aana is constant for each location.
+- House price increases by (price_per_aana / 342.25) per 100 sq.ft.
 - Price per room decreases as number of rooms increases.
 - Price per room increases as area increases.
-- Prices include both land and construction costs.
-- Model is trained on sample data and provides estimates only.
+- Prices include:
+  - Land cost (based on area in aana)
+  - Construction cost (NPR 15,000 per sq.ft.)
+  - Area price increment
+  - Room premium (logarithmic scaling)
 """)

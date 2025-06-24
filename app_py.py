@@ -120,9 +120,6 @@ with st.form("prediction_form"):
 st.markdown("""
 **Note:** 
 - 1 Aana = 342.25 sq.ft.
-- Price per aana is constant for each location.
-- House price increases by (price_per_aana / 342.25) per 100 sq.ft.
-- Electricity bill is calculated using first 3 digits of area price increment (without decimal point)
 - Prices include:
   - Area price increment
   - Electricity bill (from area increment)

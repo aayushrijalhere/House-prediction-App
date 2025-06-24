@@ -87,7 +87,7 @@ def predict_prices(rooms, area_sqft, location):
     return price_per_room, price_per_aana, area_increment, electricity_bill
 
 # Streamlit app
-st.title("Kathmandu House Price Predictor")
+st.title("Kathmandu Rent Price Predictor")
 st.write("Enter house details to get estimated prices in NPR.")
 
 # Input form

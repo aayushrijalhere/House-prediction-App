@@ -79,8 +79,9 @@ def predict_prices(rooms, area_sqft, location):
     # Calculate electricity bill from first 3 digits of area increment (without decimal)
     electricity_bill = float(f"{area_increment:.2f}".replace('.', '')[:3])
     
-    # Calculate price per room and per aana
-    price_per_room = total_price / rooms
+    # Calculate price per room including only area increment and electricity bill
+    total_increment_and_bill = area_increment + electricity_bill
+    price_per_room = total_increment_and_bill / rooms if rooms > 0 else 0
     price_per_aana = price_per_aana  # Constant per aana for location
     
     return price_per_room, price_per_aana, area_increment, electricity_bill
@@ -109,7 +110,6 @@ with st.form("prediction_form"):
                 st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
             
             st.subheader("Price Components")
-            st.write(f"- Land cost: NPR {price_per_aana * (area_sqft / 342.25):,.0f}")
             st.write(f"- Area price increment (for {area_sqft} sq.ft.): NPR {area_increment:,.0f}")
             st.write(f"- Electricity bill (first 3 digits of area increment): NPR {electricity_bill:,.0f}")
             
@@ -123,10 +123,7 @@ st.markdown("""
 - Price per aana is constant for each location.
 - House price increases by (price_per_aana / 342.25) per 100 sq.ft.
 - Electricity bill is calculated using first 3 digits of area price increment (without decimal point)
-- Price per room decreases as number of rooms increases.
 - Prices include:
-  - Land cost (based on area in aana)
   - Area price increment
   - Electricity bill (from area increment)
-  - Room premium (logarithmic scaling)
 """)

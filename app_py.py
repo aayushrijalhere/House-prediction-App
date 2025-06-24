@@ -38,26 +38,40 @@ for loc, price_per_aana in zip(locations, land_price_per_aana):
     # Calculate electricity bill based on first 3 digits of Area_Price_Increment
     loc_data['Electricity_Bill'] = loc_data['Area_Price_Increment'].astype(str).str.replace('.', '').str[:3].astype(float)
     
-    # Total price components (only land cost and electricity bill now)
-    loc_data['Price_NPR'] = loc_data['Land_Cost'] + loc_data['Electricity_Bill']
+    # Room pricing - price per room decreases as number of rooms increases
+    loc_data['Room_Premium'] = np.log(loc_data['Rooms'] + 1) * 500000  # Logarithmic scaling
+    
+    # Total price (now without construction cost, with electricity bill)
+    loc_data['Price_NPR'] = (loc_data['Land_Cost'] + 
+                            loc_data['Area_Price_Increment'] + 
+                            loc_data['Electricity_Bill'] + 
+                            loc_data['Room_Premium'])
+    
+    data = pd.concat([data, loc_data])
 
 # Create separate models for each location
 location_models = {}
 for loc in locations:
     loc_data = data[data['Location'] == loc]
     X = loc_data[['Rooms', 'Area_sqft']]
-    y = loc_data['Electricity_Bill']  # Now only modeling electricity bill
+    y = loc_data['Price_NPR']
     model = LinearRegression()
     model.fit(X, y)
     location_models[loc] = model
 
 # Prediction function
 def predict_prices(rooms, area_sqft, location):
+    # Get the model for this location
+    model = location_models.get(location)
+    if model is None:
+        raise ValueError(f"No model found for location: {location}")
+    
+    # Predict total price
+    features = [[rooms, area_sqft]]
+    total_price = model.predict(features)[0]
+    
     # Get land price per aana for this location
     price_per_aana = dict(zip(locations, land_price_per_aana))[location]
-    
-    # Calculate land cost
-    land_cost = (area_sqft / 342.25) * price_per_aana
     
     # Calculate area price increment
     area_increment = (area_sqft / 100) * (price_per_aana / 342.25)
@@ -65,13 +79,11 @@ def predict_prices(rooms, area_sqft, location):
     # Calculate electricity bill from first 3 digits of area increment (without decimal)
     electricity_bill = float(f"{area_increment:.2f}".replace('.', '')[:3])
     
-    # Total price
-    total_price = land_cost + electricity_bill
+    # Calculate price per room and per aana
+    price_per_room = total_price / rooms
+    price_per_aana = price_per_aana  # Constant per aana for location
     
-    # Price per room (only electricity bill divided by rooms, land cost excluded)
-    price_per_room = electricity_bill / rooms if rooms > 0 else 0
-    
-    return price_per_room, price_per_aana, area_increment, electricity_bill, total_price
+    return price_per_room, price_per_aana, area_increment, electricity_bill
 
 # Streamlit app
 st.title("Kathmandu House Price Predictor")
@@ -87,19 +99,19 @@ with st.form("prediction_form"):
     
     if submitted:
         try:
-            price_per_room, price_per_aana, area_increment, electricity_bill, total_price = predict_prices(rooms, area_sqft, location)
+            price_per_room, price_per_aana, area_increment, electricity_bill = predict_prices(rooms, area_sqft, location)
             
             st.subheader("Prediction Results")
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Price per Room (electricity only)", f"NPR {price_per_room:,.0f}")
+                st.metric("Price per Room", f"NPR {price_per_room:,.0f}")
             with col2:
                 st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
             
-            st.subheader("Detailed Breakdown")
-            st.write(f"- Total property price: NPR {total_price:,.0f}")
-            st.write(f"  - Land cost: NPR {(area_sqft / 342.25) * price_per_aana:,.0f}")
-            st.write(f"  - Electricity bill: NPR {electricity_bill:,.0f}")
+            st.subheader("Price Components")
+            st.write(f"- Land cost: NPR {price_per_aana * (area_sqft / 342.25):,.0f}")
+            st.write(f"- Area price increment (for {area_sqft} sq.ft.): NPR {area_increment:,.0f}")
+            st.write(f"- Electricity bill (first 3 digits of area increment): NPR {electricity_bill:,.0f}")
             
         except Exception as e:
             st.error(f"Error in prediction: {str(e)}")
@@ -109,9 +121,12 @@ st.markdown("""
 **Note:** 
 - 1 Aana = 342.25 sq.ft.
 - Price per aana is constant for each location.
-- Price per room includes only the electricity bill component divided by number of rooms
-- Electricity bill is calculated using first 3 digits of area price increment
-- Total price includes:
+- House price increases by (price_per_aana / 342.25) per 100 sq.ft.
+- Electricity bill is calculated using first 3 digits of area price increment (without decimal point)
+- Price per room decreases as number of rooms increases.
+- Prices include:
   - Land cost (based on area in aana)
+  - Area price increment
   - Electricity bill (from area increment)
+  - Room premium (logarithmic scaling)
 """)

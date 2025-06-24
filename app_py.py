@@ -1,4 +1,3 @@
-
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression
@@ -37,7 +36,7 @@ for loc, price_per_aana in zip(locations, land_price_per_aana):
     loc_data['Area_Price_Increment'] = (loc_data['Area_sqft'] / 100) * (price_per_aana / 342.25)
     
     # Calculate electricity bill based on first 3 digits of Area_Price_Increment
-    loc_data['Electricity_Bill'] = loc_data['Area_Price_Increment'].astype(str).str[:3].astype(float) * 100
+    loc_data['Electricity_Bill'] = loc_data['Area_Price_Increment'].astype(str).str.replace('.', '').str[:3].astype(float)
     
     # Room pricing - price per room decreases as number of rooms increases
     loc_data['Room_Premium'] = np.log(loc_data['Rooms'] + 1) * 500000  # Logarithmic scaling
@@ -77,8 +76,8 @@ def predict_prices(rooms, area_sqft, location):
     # Calculate area price increment
     area_increment = (area_sqft / 100) * (price_per_aana / 342.25)
     
-    # Calculate electricity bill from first 3 digits of area increment
-    electricity_bill = float(f"{area_increment:.2f}".split('.')[0][:3]) * 100
+    # Calculate electricity bill from first 3 digits of area increment (without decimal)
+    electricity_bill = float(f"{area_increment:.2f}".replace('.', '')[:3])
     
     # Calculate price per room and per aana
     price_per_room = total_price / rooms
@@ -110,8 +109,9 @@ with st.form("prediction_form"):
                 st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
             
             st.subheader("Price Components")
+            st.write(f"- Land cost: NPR {price_per_aana * (area_sqft / 342.25):,.0f}")
             st.write(f"- Area price increment (for {area_sqft} sq.ft.): NPR {area_increment:,.0f}")
-            st.write(f"- Electricity bill (based on area increment): NPR {electricity_bill:,.0f}")
+            st.write(f"- Electricity bill (first 3 digits of area increment): NPR {electricity_bill:,.0f}")
             
         except Exception as e:
             st.error(f"Error in prediction: {str(e)}")
@@ -122,11 +122,11 @@ st.markdown("""
 - 1 Aana = 342.25 sq.ft.
 - Price per aana is constant for each location.
 - House price increases by (price_per_aana / 342.25) per 100 sq.ft.
-- Electricity bill is calculated as (first 3 digits of area price increment) × 100
+- Electricity bill is calculated using first 3 digits of area price increment (without decimal point)
 - Price per room decreases as number of rooms increases.
 - Prices include:
   - Land cost (based on area in aana)
   - Area price increment
-  - Electricity bill
+  - Electricity bill (from area increment)
   - Room premium (logarithmic scaling)
 """)

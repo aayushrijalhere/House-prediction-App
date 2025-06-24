@@ -105,7 +105,7 @@ with st.form("prediction_form"):
             st.subheader("Prediction Results")
             col1, col2 = st.columns(2)
             with col1:
-                st.metric("Price per Room", f"NPR {price_per_room:,.0f}")
+                st.metric("Price per Room (Monthly)", f"NPR {price_per_room:,.0f}")
             with col2:
                 st.metric("Price per Aana", f"NPR {price_per_aana:,.0f}")
             

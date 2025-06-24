@@ -43,7 +43,7 @@ for loc, price_per_aana in zip(locations, land_price_per_aana):
     
     # Total price 
     loc_data['Price_NPR'] = loc_data['Area_Price_Increment'] + 
-                            loc_data['Electricity_Bill'])
+                            loc_data['Electricity_Bill']
     
     data = pd.concat([data, loc_data])
 

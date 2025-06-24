@@ -42,7 +42,8 @@ for loc, price_per_aana in zip(locations, land_price_per_aana):
     loc_data['Room_Premium'] = np.log(loc_data['Rooms'] + 1) * 500000  # Logarithmic scaling
     
     # Total price 
-    loc_data['Price_NPR'] = loc_data['Area_Price_Increment'] + 
+    loc_data['Price_NPR'] = (loc_data['Land_Cost'] + 
+    loc_data['Area_Price_Increment'] + 
                             loc_data['Electricity_Bill'] +
     loc_data['Room_Premium'])
     

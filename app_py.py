@@ -41,11 +41,9 @@ for loc, price_per_aana in zip(locations, land_price_per_aana):
     # Room pricing - price per room decreases as number of rooms increases
     loc_data['Room_Premium'] = np.log(loc_data['Rooms'] + 1) * 500000  # Logarithmic scaling
     
-    # Total price (now without construction cost, with electricity bill)
-    loc_data['Price_NPR'] = (loc_data['Land_Cost'] + 
-                            loc_data['Area_Price_Increment'] + 
-                            loc_data['Electricity_Bill'] + 
-                            loc_data['Room_Premium'])
+    # Total price 
+    loc_data['Price_NPR'] = loc_data['Area_Price_Increment'] + 
+                            loc_data['Electricity_Bill'])
     
     data = pd.concat([data, loc_data])
 
